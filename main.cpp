@@ -11,12 +11,13 @@
 #include <Windows.h>// SetConsoleCursorPosition
 #include <thread>	// thread
 
-#define firstLow 6
-#define secondLow 8
-#define TIMELIMIT 5
+#define FIRSTLOW 6
+#define SECONDLOW 8
+#define TIMELIMIT 60
 
 using namespace std;
 
+void select_clear();
 void timer(bool* flag);
 void play_game(int select);
 void gotoXY(int x, int y);
@@ -24,14 +25,13 @@ void make_problem(vector<int>& problemBuf, int level);
 void display_menu(int y);
 void display_menu_refrash(int& select);
 void display_game(vector<int>& problem, vector<int>& answer, int level);
-void display_vector(vector<int>& temp);
+void display_answer(vector<int>& answer);
+void display_arrow(vector<int>& temp);
+void display_select(int select);
 void display_complete();
 void display_BOOM();
 
 bool compare_vector(vector<int>& problem, vector<int>& answer);
-
-
-// "\33[2K" Erase the line of console.
 
 enum ArrowKey {
 	UP = 72,
@@ -81,20 +81,28 @@ void make_problem(vector<int>& problemBuf, int level) {
 }
 
 void play_game(int select) {
-	// 게임 시작.
 	vector<int> problem, answer;
+	thread timeCount;
+
 	bool flag = true; // Time Out check
 	int level = 1;
 	char input;
 
-	thread timeCount(timer, &flag);
+
+	// 게임시작 선택 시 타이머 동작.
+	if (select == FIRSTLOW) {
+		timeCount = thread(timer, &flag);
+		timeCount.detach(); // 쓰레드를 독립적으로 전환. 끝나는 걸 기다리지 않음. 안전한 종료 가능.
+	} else {
+		// None
+	}
+
 	make_problem(problem, level);
+	display_game(problem, answer, level);
 
-	timeCount.detach(); // 쓰레드를 독립적으로 전환. 끝나는 걸 기다리지 않음. 안전한 종료 가능.
-
-	while (level <= 10 && select == firstLow) {
+	while (level <= 10 && select == FIRSTLOW) {
 		// Refrash Display
-		display_game(problem, answer, level);
+		display_answer(answer);
 
 		input = _getch();
 
@@ -120,7 +128,8 @@ void play_game(int select) {
 
 			answer.clear();
 			make_problem(problem, level);
-		} else if (!compare_vector(problem, answer)) {// (answer.size() == problem.size()) {
+			display_game(problem, answer, level);
+		} else if (!compare_vector(problem, answer)) {
 			// Wrong answer
 			answer.clear();
 		} else {
@@ -128,15 +137,18 @@ void play_game(int select) {
 		}
 
 		if (!flag) {
-			timeCount.~thread();
 			break;
+		} else {
+			// None
 		}
 	}
 
-	if (flag) {
-		display_complete();
-	} else {
+	timeCount.~thread();
+
+	if (!flag) {
 		display_BOOM();
+	} else {
+		display_complete();
 	}
 }
 
@@ -145,10 +157,14 @@ bool compare_vector(vector<int>& problem, vector<int>& answer) {
 
 	if (index == 0) {
 		return false;
+	} else {
+		// None
 	}
 
 	if (problem[index - 1] == answer[index - 1]) {
 		return true;
+	} else {
+		// None
 	}
 
 	return false;
@@ -162,24 +178,42 @@ void display_menu(int select) {
 	gotoXY(10, 10);
 	cout << "================================================================================";
 
-	gotoXY(25, select);
-	cout << "▶";
+	display_select(select);
+}
 
-	gotoXY(27, firstLow);
-	cout << "게임시작";
+void display_select(int select) {
+	switch (select) {
+		case FIRSTLOW:
+			select_clear();
+			gotoXY(25, select);
+			cout << "▶";
+			break;
+		case SECONDLOW:
+			select_clear();
+			gotoXY(25, select);
+			cout << "▶";
+			break;
+		default:
+			break;
+	}
+}
 
-	gotoXY(27, secondLow);
-	cout << "게임종료";
+void select_clear() {
+	gotoXY(27, FIRSTLOW);
+	cout << "\33[2K" << "게임시작";
+
+	gotoXY(27, SECONDLOW);
+	cout << "\33[2K" << "게임종료";
 }
 
 void display_menu_refrash(int& select) {
 	char input;
 	bool flag = false;
-	select = firstLow;
+	select = FIRSTLOW;
 
+	display_menu(select);
 	while (1) {
-		display_menu(select);
-
+		display_select(select);
 		input = _getch();
 
 		switch (input) {
@@ -189,24 +223,23 @@ void display_menu_refrash(int& select) {
 			case DOWN:
 				select = select + 2;
 				break;
-			case ENTER: // Enter
+			case ENTER:
 				flag = true;
 				break;
 			default:
 				break;
 		}
 
-		if (select < firstLow) {
-			select = firstLow;
-		} else if (select > secondLow) {
-			select = secondLow;
+		if (select < FIRSTLOW) {
+			select = FIRSTLOW;
+		} else if (select > SECONDLOW) {
+			select = SECONDLOW;
 		} else {
 			// None
 		}
 
 		if (flag) {
 			return;
-			break;
 		} else {
 			// None
 		}
@@ -224,14 +257,19 @@ void display_game(vector<int>& problem, vector<int>& answer, int level) {
 	gotoXY(23, 5);
 	cout << level;
 
-	gotoXY(25, firstLow);
-	display_vector(problem);
+	gotoXY(25, FIRSTLOW);
+	display_arrow(problem);
 
-	gotoXY(25, secondLow);
-	display_vector(answer);
+	display_answer(answer);
 }
 
-void display_vector(vector<int>& temp) {
+void display_answer(vector<int>& answer) {
+	gotoXY(25, SECONDLOW);
+	cout << "\33[2K";
+	display_arrow(answer);
+}
+
+void display_arrow(vector<int>& temp) {
 	string arrow = "";
 
 	for (auto k = temp.begin(); k != temp.end(); k++) {
@@ -264,8 +302,8 @@ void display_complete() {
 	gotoXY(10, 2);
 	cout << "================================================================================\n\n";
 	
-	gotoXY(27, firstLow);
-	cout << "COMPLETE\n\n" << endl;
+	gotoXY(27, FIRSTLOW);
+	cout << "COMPLETE\n\n\n";
 	
 	gotoXY(10, 10);
 	cout << "================================================================================" << endl;
@@ -277,8 +315,8 @@ void display_BOOM() {
 	gotoXY(10, 2);
 	cout << "================================================================================\n\n";
 
-	gotoXY(27, firstLow);
-	cout << "BOOM\n\n" << endl;
+	gotoXY(27, FIRSTLOW);
+	cout << "BOOM\n\n\n";
 
 	gotoXY(10, 10);
 	cout << "================================================================================" << endl;
